@@ -1,0 +1,110 @@
+---
+title: "Genetic interactions CellMap exploration"
+author: "H Qin"
+date: "10/17/2017"
+output: html_document
+---
+See http://hongqinlab.blogspot.com/2017/06/yeast-genetic-map.html
+
+CELLMAP provids genetics interaction in pairwise format. 
+The interactions are provided for strain_ids (alleles). 
+The mapping of strain_id and ORF is in "strain_ids_and_single_mutant_fitness.csv" . 
+```{r}
+rm(list=ls());
+set.seed(2017);
+datapath = "~/data/Sce/CellMap/20170626/S1.pairwise/";
+debug = 0;
+list.files(path=datapath);
+```
+
+Load naming lookup tables
+```{r}
+dic = read.csv(paste(datapath, "strain_ids_and_single_mutant_fitness.csv", sep=''))
+```
+
+Load essential and non-essential infor that H. Qin generated. 
+```{r}
+list.files(path="data");
+fit = read.csv("data/SummaryRegressionHetHomFactorized2015Oct13.csv")
+```
+
+Load pairwise interaction data
+```{r}
+#Essential X Essential 
+tb.ee = read.table(paste(datapath,"SGA_ExE.txt", sep=''), header=T, sep="\t");
+summary(tb.ee);
+```
+
+```{r}
+#EXN and NXE
+tb.en = read.table(paste(datapath,"SGA_ExN_NxE.txt", sep=''), header=T, sep="\t");
+summary(tb.en);
+```
+
+```{r}
+#NXN I do not need consider NxN for my aging modeling project
+tb.nn = read.table(paste(datapath,"SGA_NxN.txt", sep=''), header=T, sep="\t");
+summary(tb.nn);
+```
+
+Columns names in the 3 tables are the same. 
+```{r}
+rbind( names(tb.en), names(tb.ee), names(tb.nn))
+```
+
+Merge 3 tables into 1 table. 
+```{r}
+tb.gin = rbind(tb.ee, tb.en, tb.nn);
+```
+Double-check the merged results
+```{r}
+length(tb.gin[,1]) == sum(length(tb.ee[,1]), length(tb.en[,1]), length(tb.nn[,1]))
+```
+
+Remove unused table to free up memory
+```{r}
+ls()
+rm(tb.en, tb.ee, tb.nn)
+ls()
+```
+
+
+Costanzo2016 suggested lenient, intermediate, and stringennt ways for gin quality check. 
+
+```{r}
+tb.gin.lenient = tb.gin[ tb.gin$P.value<=0.05, ];
+if (debug ==0) { rm(tb.gin); } #freeup memory
+```
+
+Map strain IDs to ORFs, add my essentialFalgs
+
+```{r}
+tb.gin.lenient$ORF1 = dic$Systematic.gene.name[match( tb.gin.lenient$Query.Strain.ID, dic$Strain.ID)]
+tb.gin.lenient$ORF2 = dic$Systematic.gene.name[match( tb.gin.lenient$Array.Strain.ID, dic$Strain.ID)]
+
+tb.gin.lenient$essenflag1 = fit$essenflag[ match(tb.gin.lenient$ORF1, fit$orf)]
+tb.gin.lenient$essenflag2 = fit$essenflag[ match(tb.gin.lenient$ORF2, fit$orf)]
+
+head(tb.gin.lenient)
+```
+
+
+```{r}
+tb.gin.intermediate = tb.gin.lenient[ abs(tb.gin.lenient$Genetic.interaction.score..ε.) >0.08, ];
+tb.gin.stringent = tb.gin.lenient[ tb.gin.lenient$Genetic.interaction.score..ε.>0.16 | tb.gin.lenient$Genetic.interaction.score..ε.< -0.12, ]
+```
+
+
+```{r}
+hist(tb.gin.lenient$Genetic.interaction.score..ε., breaks = 100)
+```
+
+
+```{r}
+summary(tb.gin.lenient);
+summary(tb.gin.intermediate);
+summary(tb.gin.stringent)
+```
+
+
+
