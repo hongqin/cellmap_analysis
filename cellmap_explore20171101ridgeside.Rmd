@@ -1,0 +1,154 @@
+---
+title: "Genetic interactions CellMap exploration"
+author: "H Qin"
+date: "10/23 - 20/27 /2017 "
+output: html_document
+---
+See http://hongqinlab.blogspot.com/2017/06/yeast-genetic-map.html
+
+CELLMAP provids genetics interaction in pairwise format. 
+The interactions are provided for strain_ids (alleles). 
+The mapping of strain_id and ORF is in "strain_ids_and_single_mutant_fitness.csv" . 
+```{r}
+rm(list=ls());
+set.seed(2017);
+datapath = "~/github/cellmap_parent/CellMap/20170626/S1.pairwise/"; #ridgeside
+#datapath = "~/data/Sce/CellMap/20170626/S1.pairwise/"; #applejack
+debug = 0;
+list.files(path=datapath);
+```
+
+Load naming lookup tables
+```{r}
+dic = read.csv(paste(datapath, "strain_ids_and_single_mutant_fitness.csv", sep=''))
+```
+
+Load essential and non-essential infor that H. Qin generated. 
+```{r}
+list.files(path="data");
+fit = read.csv("data/SummaryRegressionHetHomFactorized2015Oct13.csv")
+```
+
+Load pairwise interaction data
+```{r}
+#Essential X Essential 
+tb.ee = read.table(paste(datapath,"SGA_ExE.txt", sep=''), header=T, sep="\t");
+summary(tb.ee);
+```
+
+```{r}
+#EXN and NXE
+tb.en = read.table(paste(datapath,"SGA_ExN_NxE.txt", sep=''), header=T, sep="\t");
+summary(tb.en);
+```
+
+```{r}
+#NXN I do not need consider NxN for my aging modeling project
+tb.nn = read.table(paste(datapath,"SGA_NxN.txt", sep=''), header=T, sep="\t");
+summary(tb.nn);
+```
+
+Columns names in the 3 tables are the same. 
+```{r}
+rbind( names(tb.en), names(tb.ee), names(tb.nn))
+```
+
+Merge 3 tables into 1 table. 
+```{r}
+tb.gin = rbind(tb.ee, tb.en, tb.nn);
+```
+Double-check the merged results
+```{r}
+length(tb.gin[,1]) == sum(length(tb.ee[,1]), length(tb.en[,1]), length(tb.nn[,1]))
+```
+
+Remove unused table to free up memory
+```{r}
+ls()
+rm(tb.en, tb.ee, tb.nn)
+ls()
+```
+
+
+Costanzo2016 suggested lenient, intermediate, and stringennt ways for gin quality check. 
+
+```{r}
+tb.gin.lenient = tb.gin[ tb.gin$P.value<=0.05, ];
+if (debug ==0) { rm(tb.gin); } #freeup memory
+```
+
+Map strain IDs to ORFs, add my essentialFalgs
+
+```{r}
+tb.gin.lenient$ORF1 = as.character( dic$Systematic.gene.name[match( tb.gin.lenient$Query.Strain.ID, dic$Strain.ID)] )
+tb.gin.lenient$ORF2 = as.character( dic$Systematic.gene.name[match( tb.gin.lenient$Array.Strain.ID, dic$Strain.ID)] )
+
+tb.gin.lenient$essenflag1 = fit$essenflag[ match(tb.gin.lenient$ORF1, fit$orf)]
+tb.gin.lenient$essenflag2 = fit$essenflag[ match(tb.gin.lenient$ORF2, fit$orf)]
+
+head(tb.gin.lenient)
+```
+
+I need to take only unqiue interactions. This however raise questions how to store score andn p-values. 
+I will store the unique key_pairs first. 
+
+
+```{r}
+# This chunk of codes only runs for subset of tb.gin.lenient, but not 
+#pairs = tb.gin.lenient[ c(1:2, 100, 1001, 5000, 9000), c("ORF1", "ORF2")]; #debug
+#pairs = tb.gin.lenient[ 1:length(tb.gin.lenient[,1]), c("ORF1", "ORF2")];#DOES NOT RUN correctly
+#pairs = tb.gin.lenient[ , c("ORF1", "ORF2")]; #DOES NOT RUN correctly
+#pairs = tb.gin.lenient[ 1000:1050, c("ORF1", "ORF2")];
+#pairs = data.frame(pairs)
+#ordered_pairs = t(apply(pairs, 1, sort)); 
+#ordered_pairs = data.frame(ordered_pairs);
+#names(ordered_pairs) = c('id1', 'id2');
+#ordered_pairs$id1 = as.character( ordered_pairs$id1)
+#ordered_pairs$id2 = as.character( ordered_pairs$id2)
+#tb.gin.lenient$ordered_pairs =  paste( ordered_pairs$id1, ordered_pairs$id2, sep="_")[5:10]
+```
+
+```{r}
+# i=199990
+#i=5347
+#i=5348
+
+#for (i in 5347:6999) {
+for (i in 1:length(tb.gin.lenient[,1])) {
+ if( (round(i/1000)*1000 - i)==0 ) { print (i); }  
+ pairs = tb.gin.lenient[i , c("ORF1", "ORF2")];
+ ordered_pairs = sort(pairs)
+ tb.gin.lenient$ordered_pairs[i] =  paste( ordered_pairs[1], ordered_pairs[2], sep="_");
+}
+```
+
+How many unique interactions (gene pairs) ? 
+```{r}
+#unique
+```
+
+```{r}
+tb.gin.intermediate = tb.gin.lenient[ abs(tb.gin.lenient$Genetic.interaction.score..ε.) >0.08, ];
+tb.gin.stringent = tb.gin.lenient[ tb.gin.lenient$Genetic.interaction.score..ε.>0.16 | tb.gin.lenient$Genetic.interaction.score..ε.< -0.12, ]
+```
+
+
+```{r}
+hist(tb.gin.lenient$Genetic.interaction.score..ε., breaks = 100)
+```
+
+
+```{r}
+summary(tb.gin.lenient);
+summary(tb.gin.intermediate);
+summary(tb.gin.stringent)
+```
+
+
+output
+```{r}
+write.csv(tb.gin.lenient, "../cellmap_data/gin_lenient20171027.csv", row.names = F);
+write.csv(tb.gin.intermediate, "../cellmap_data/gin_intermediate20171027.csv", row.names = F);
+write.csv(tb.gin.stringent, "../cellmap_data/gin_stringent20171027.csv", row.names = F);
+```
+
