@@ -1,7 +1,7 @@
 ---
 title: "Genetic interactions CellMap exploration"
 author: "H Qin"
-date: "10/23 - 20/27 /2017 "
+date: "11/1 - 11/9 /2017 "
 output: html_document
 ---
 See http://hongqinlab.blogspot.com/2017/06/yeast-genetic-map.html
@@ -14,7 +14,7 @@ rm(list=ls());
 set.seed(2017);
 datapath = "~/github/cellmap_parent/CellMap/20170626/S1.pairwise/"; #ridgeside
 #datapath = "~/data/Sce/CellMap/20170626/S1.pairwise/"; #applejack
-debug = 1;
+debug = 0;
 list.files(path=datapath);
 ```
 
@@ -130,15 +130,17 @@ for (i in 1:total) {
 ```
 
 How many unique interactions (gene pairs) ? 
+1394733 in unique_pairs, which is 88.86% of the tb.gin.lenient rows
 ```{r}
-#unique
+unique_pairs = unique( tb.gin.lenient$ordered_pairs ) 
+length(unique_pairs) / length(tb.gin.lenient[,1])
 ```
 
+Using author's definition to find intermediate and stringent subsets. 
 ```{r}
 tb.gin.intermediate = tb.gin.lenient[ abs(tb.gin.lenient$Genetic.interaction.score..ε.) >0.08, ];
 tb.gin.stringent = tb.gin.lenient[ tb.gin.lenient$Genetic.interaction.score..ε.>0.16 | tb.gin.lenient$Genetic.interaction.score..ε.< -0.12, ]
 ```
-
 
 ```{r}
 hist(tb.gin.lenient$Genetic.interaction.score..ε., breaks = 100)
@@ -151,11 +153,74 @@ summary(tb.gin.intermediate);
 summary(tb.gin.stringent)
 ```
 
-
 output
 ```{r}
 write.csv(tb.gin.lenient, "../cellmap_data/gin_lenient20171101.csv", row.names = F);
 write.csv(tb.gin.intermediate, "../cellmap_data/gin_intermediate20171101.csv", row.names = F);
 write.csv(tb.gin.stringent, "../cellmap_data/gin_stringent20171101.csv", row.names = F);
+```
+
+
+
+Generate "lenient" unique GINx using average values
+```{r}
+#Generate unique GINs using match(). This does not average the genetic interaction score
+tb.gin.lenient.uniqueByMatch = tb.gin.lenient[match(unique_pairs, tb.gin.lenient$ordered_pairs),  ]
+tb.gin.lenient.uniqueByAverage = tb.gin.lenient.uniqueByMatch; 
+tb.gin.lenient.uniqueByAverage$buffer = "NA"
+total = length(tb.gin.lenient[,1]);
+for (i in 1:total) {
+ tmp = tb.gin.lenient[ tb.gin.lenient$ordered_pairs == unique_pairs[i],  ]
+ if( length(tmp[,1]) > 1) {#more than 1 records, take average
+   tb.gin.lenient.uniqueByAverage$buffer[i]  = paste( tmp$Query.Strain.ID, tmp$Array.Strain.ID, sep=" ", collapse="::");
+   tb.gin.lenient.uniqueByAverage$Genetic.interaction.score..ε. = mean(tmp$Genetic.interaction.score..ε.)
+   tb.gin.lenient.uniqueByAverage$P.value = mean(tmp$P.value)
+ }  
+ #else do nothing
+}
+```
+
+Generate "intermediate" unique GINx using average values
+```{r}
+tb.gin.intermediate.uniqueByMatch = tb.gin.intermediate[match(unique_pairs, tb.gin.intermediate$ordered_pairs),  ]
+tb.gin.intermediate.uniqueByAverage = tb.gin.intermediate.uniqueByMatch; 
+tb.gin.intermediate.uniqueByAverage$buffer = "NA"
+totalIntermediate = length(tb.gin.intermediate[,1]);
+for (i in 1:totalIntermediate) {
+ tmp = tb.gin.intermediate[ tb.gin.intermediate$ordered_pairs == unique_pairs[i],  ]
+ if( length(tmp[,1]) > 1) {#more than 1 records, take average
+   tb.gin.intermediate.uniqueByAverage$buffer[i]  = paste( tmp$Query.Strain.ID, tmp$Array.Strain.ID, sep=" ", collapse="::");
+   tb.gin.intermediate.uniqueByAverage$Genetic.interaction.score..ε. = mean(tmp$Genetic.interaction.score..ε.)
+   tb.gin.intermediate.uniqueByAverage$P.value = mean(tmp$P.value)
+ }  
+ #else do nothing
+}
+```
+
+
+Generate "stringent" unique GINx using average values
+```{r}
+tb.gin.stringent.uniqueByMatch = tb.gin.stringent[match(unique_pairs, tb.gin.stringent$ordered_pairs),  ]
+tb.gin.stringent.uniqueByAverage = tb.gin.stringent.uniqueByMatch; 
+tb.gin.stringent.uniqueByAverage$buffer = "NA"
+totalstringent = length(tb.gin.stringent[,1]);
+for (i in 1:totalstringent) {
+ tmp = tb.gin.stringent[ tb.gin.stringent$ordered_pairs == unique_pairs[i],  ]
+ if( length(tmp[,1]) > 1) {#more than 1 records, take average
+   tb.gin.stringent.uniqueByAverage$buffer[i]  = paste( tmp$Query.Strain.ID, tmp$Array.Strain.ID, sep=" ", collapse="::");
+   tb.gin.stringent.uniqueByAverage$Genetic.interaction.score..ε. = mean(tmp$Genetic.interaction.score..ε.)
+   tb.gin.stringent.uniqueByAverage$P.value = mean(tmp$P.value)
+ }  
+ #else do nothing
+}
+```
+
+
+
+output
+```{r}
+write.csv(tb.gin.lenient.uniqueByAverage, "../cellmap_data/gin_lenient_uniquePairs20171109.csv", row.names = F);
+write.csv(tb.gin.intermediate.uniqueByAverage, "../cellmap_data/gin_intermediate_UniquePairs20171109.csv", row.names = F);
+write.csv(tb.gin.stringent.uniqueByAverage, "../cellmap_data/gin_stringen_UniquePairs20171109.csv", row.names = F);
 ```
 
