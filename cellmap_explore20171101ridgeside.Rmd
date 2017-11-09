@@ -14,7 +14,7 @@ rm(list=ls());
 set.seed(2017);
 datapath = "~/github/cellmap_parent/CellMap/20170626/S1.pairwise/"; #ridgeside
 #datapath = "~/data/Sce/CellMap/20170626/S1.pairwise/"; #applejack
-debug = 0;
+debug = 1;
 list.files(path=datapath);
 ```
 
@@ -64,9 +64,11 @@ length(tb.gin[,1]) == sum(length(tb.ee[,1]), length(tb.en[,1]), length(tb.nn[,1]
 
 Remove unused table to free up memory
 ```{r}
-ls()
-rm(tb.en, tb.ee, tb.nn)
-ls()
+if (debug==0){
+ ls()
+ rm(tb.en, tb.ee, tb.nn)
+ ls()
+}
 ```
 
 
@@ -114,11 +116,16 @@ I will store the unique key_pairs first.
 #i=5348
 
 #for (i in 5347:6999) {
-for (i in 1:length(tb.gin.lenient[,1])) {
- if( (round(i/1000)*1000 - i)==0 ) { print (i); }  
+total = length(tb.gin.lenient[,1]);
+for (i in 1:total) {
+ if( (round(i/1000)*1000 - i)==0 ) { print(paste(i, "::", total - i) ); }  
  pairs = tb.gin.lenient[i , c("ORF1", "ORF2")];
- ordered_pairs = sort(pairs)
- tb.gin.lenient$ordered_pairs[i] =  paste( ordered_pairs[1], ordered_pairs[2], sep="_");
+ if ( ! is.na(pairs[1]) ) {
+  ordered_pairs = sort(pairs)
+  tb.gin.lenient$ordered_pairs[i] =  paste( ordered_pairs[1], ordered_pairs[2], sep="_");
+ } else {
+  tb.gin.lenient$ordered_pairs[i] = "NA_found"; 
+ }
 }
 ```
 
@@ -147,8 +154,8 @@ summary(tb.gin.stringent)
 
 output
 ```{r}
-write.csv(tb.gin.lenient, "../cellmap_data/gin_lenient20171027.csv", row.names = F);
-write.csv(tb.gin.intermediate, "../cellmap_data/gin_intermediate20171027.csv", row.names = F);
-write.csv(tb.gin.stringent, "../cellmap_data/gin_stringent20171027.csv", row.names = F);
+write.csv(tb.gin.lenient, "../cellmap_data/gin_lenient20171101.csv", row.names = F);
+write.csv(tb.gin.intermediate, "../cellmap_data/gin_intermediate20171101.csv", row.names = F);
+write.csv(tb.gin.stringent, "../cellmap_data/gin_stringent20171101.csv", row.names = F);
 ```
 

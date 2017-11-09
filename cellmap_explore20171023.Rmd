@@ -1,7 +1,7 @@
 ---
 title: "Genetic interactions CellMap exploration"
 author: "H Qin"
-date: "10/17 - 20/27 /2017 "
+date: "10/23 - 20/27 /2017 "
 output: html_document
 ---
 See http://hongqinlab.blogspot.com/2017/06/yeast-genetic-map.html
@@ -79,8 +79,8 @@ if (debug ==0) { rm(tb.gin); } #freeup memory
 Map strain IDs to ORFs, add my essentialFalgs
 
 ```{r}
-tb.gin.lenient$ORF1 = dic$Systematic.gene.name[match( tb.gin.lenient$Query.Strain.ID, dic$Strain.ID)]
-tb.gin.lenient$ORF2 = dic$Systematic.gene.name[match( tb.gin.lenient$Array.Strain.ID, dic$Strain.ID)]
+tb.gin.lenient$ORF1 = as.character( dic$Systematic.gene.name[match( tb.gin.lenient$Query.Strain.ID, dic$Strain.ID)] )
+tb.gin.lenient$ORF2 = as.character( dic$Systematic.gene.name[match( tb.gin.lenient$Array.Strain.ID, dic$Strain.ID)] )
 
 tb.gin.lenient$essenflag1 = fit$essenflag[ match(tb.gin.lenient$ORF1, fit$orf)]
 tb.gin.lenient$essenflag2 = fit$essenflag[ match(tb.gin.lenient$ORF2, fit$orf)]
@@ -88,6 +88,43 @@ tb.gin.lenient$essenflag2 = fit$essenflag[ match(tb.gin.lenient$ORF2, fit$orf)]
 head(tb.gin.lenient)
 ```
 
+I need to take only unqiue interactions. This however raise questions how to store score andn p-values. 
+I will store the unique key_pairs first. 
+
+
+```{r}
+# This chunk of codes only runs for subset of tb.gin.lenient, but not 
+#pairs = tb.gin.lenient[ c(1:2, 100, 1001, 5000, 9000), c("ORF1", "ORF2")]; #debug
+#pairs = tb.gin.lenient[ 1:length(tb.gin.lenient[,1]), c("ORF1", "ORF2")];#DOES NOT RUN correctly
+#pairs = tb.gin.lenient[ , c("ORF1", "ORF2")]; #DOES NOT RUN correctly
+#pairs = tb.gin.lenient[ 1000:1050, c("ORF1", "ORF2")];
+#pairs = data.frame(pairs)
+#ordered_pairs = t(apply(pairs, 1, sort)); 
+#ordered_pairs = data.frame(ordered_pairs);
+#names(ordered_pairs) = c('id1', 'id2');
+#ordered_pairs$id1 = as.character( ordered_pairs$id1)
+#ordered_pairs$id2 = as.character( ordered_pairs$id2)
+#tb.gin.lenient$ordered_pairs =  paste( ordered_pairs$id1, ordered_pairs$id2, sep="_")[5:10]
+```
+
+```{r}
+# i=199990
+#i=5347
+#i=5348
+
+#for (i in 5347:6999) {
+for (i in 1:length(tb.gin.lenient[,1])) {
+ i; 
+ pairs = tb.gin.lenient[i , c("ORF1", "ORF2")];
+ ordered_pairs = sort(pairs)
+ tb.gin.lenient$ordered_pairs[i] =  paste( ordered_pairs[1], ordered_pairs[2], sep="_");
+}
+```
+
+How many unique interactions (gene pairs) ? 
+```{r}
+#unique
+```
 
 ```{r}
 tb.gin.intermediate = tb.gin.lenient[ abs(tb.gin.lenient$Genetic.interaction.score..ε.) >0.08, ];
