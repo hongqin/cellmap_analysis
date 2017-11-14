@@ -1,0 +1,227 @@
+---
+title: "Genetic interactions CellMap exploration, multicore version"
+author: "H Qin"
+date: "11/1 - 11/9 /2017 "
+output: html_document
+---
+Multicore 
+See http://hongqinlab.blogspot.com/2017/06/yeast-genetic-map.html
+
+CELLMAP provids genetics interaction in pairwise format. 
+The interactions are provided for strain_ids (alleles). 
+The mapping of strain_id and ORF is in "strain_ids_and_single_mutant_fitness.csv" . 
+```{r}
+rm(list=ls());
+set.seed(2017);
+datapath = "~/github/cellmap_parent/CellMap/20170626/S1.pairwise/"; #ridgeside
+#datapath = "~/data/Sce/CellMap/20170626/S1.pairwise/"; #applejack
+debug = 0;
+list.files(path=datapath);
+
+library(foreach)
+library(doMC)
+registerDoMC(4)
+```
+
+Load naming lookup tables
+```{r}
+dic = read.csv(paste(datapath, "strain_ids_and_single_mutant_fitness.csv", sep=''))
+```
+
+Load essential and non-essential infor that H. Qin generated. 
+```{r}
+list.files(path="data");
+fit = read.csv("data/SummaryRegressionHetHomFactorized2015Oct13.csv")
+```
+
+Load pairwise interaction data
+```{r}
+#Essential X Essential 
+tb.ee = read.table(paste(datapath,"SGA_ExE.txt", sep=''), header=T, sep="\t");
+summary(tb.ee);
+```
+
+```{r}
+#EXN and NXE
+tb.en = read.table(paste(datapath,"SGA_ExN_NxE.txt", sep=''), header=T, sep="\t");
+summary(tb.en);
+```
+
+```{r}
+#NXN I do not need consider NxN for my aging modeling project
+tb.nn = read.table(paste(datapath,"SGA_NxN.txt", sep=''), header=T, sep="\t");
+summary(tb.nn);
+```
+
+Columns names in the 3 tables are the same. 
+```{r}
+rbind( names(tb.en), names(tb.ee), names(tb.nn))
+```
+
+Merge 3 tables into 1 table. 
+```{r}
+tb.gin = rbind(tb.ee, tb.en, tb.nn);
+```
+Double-check the merged results
+```{r}
+length(tb.gin[,1]) == sum(length(tb.ee[,1]), length(tb.en[,1]), length(tb.nn[,1]))
+```
+
+Remove unused table to free up memory
+```{r}
+if (debug==0){
+ ls()
+ rm(tb.en, tb.ee, tb.nn)
+ ls()
+}
+```
+
+
+Costanzo2016 suggested lenient, intermediate, and stringennt ways for gin quality check. 
+
+```{r}
+tb.gin.lenient = tb.gin[ tb.gin$P.value<=0.05, ];
+if (debug ==0) { rm(tb.gin); } #freeup memory
+```
+
+Map strain IDs to ORFs, add my essentialFalgs
+
+```{r}
+tb.gin.lenient$ORF1 = as.character( dic$Systematic.gene.name[match( tb.gin.lenient$Query.Strain.ID, dic$Strain.ID)] )
+tb.gin.lenient$ORF2 = as.character( dic$Systematic.gene.name[match( tb.gin.lenient$Array.Strain.ID, dic$Strain.ID)] )
+
+tb.gin.lenient$essenflag1 = fit$essenflag[ match(tb.gin.lenient$ORF1, fit$orf)]
+tb.gin.lenient$essenflag2 = fit$essenflag[ match(tb.gin.lenient$ORF2, fit$orf)]
+
+head(tb.gin.lenient)
+```
+
+I need to take only unqiue interactions. This however raise questions how to store score andn p-values. 
+I will store the unique key_pairs first. 
+
+
+```{r}
+# i=199990
+#i=5347
+#i=5348
+
+#for (i in 5347:6999) {
+total = length(tb.gin.lenient[,1]);
+for (i in 1:total) {
+ if( (round(i/1000)*1000 - i)==0 ) { print(paste(i, "::", total - i) ); }  
+ pairs = tb.gin.lenient[i , c("ORF1", "ORF2")];
+ if ( ! is.na(pairs[1]) ) {
+  ordered_pairs = sort(pairs)
+  tb.gin.lenient$ordered_pairs[i] =  paste( ordered_pairs[1], ordered_pairs[2], sep="_");
+ } else {
+  tb.gin.lenient$ordered_pairs[i] = "NA_found"; 
+ }
+}
+```
+
+How many unique interactions (gene pairs) ? 
+1394733 in unique_pairs, which is 88.86% of the tb.gin.lenient rows
+```{r}
+unique_pairs = unique( tb.gin.lenient$ordered_pairs ) 
+length(unique_pairs) / length(tb.gin.lenient[,1])
+```
+
+Using author's definition to find intermediate and stringent subsets. 
+```{r}
+tb.gin.intermediate = tb.gin.lenient[ abs(tb.gin.lenient$Genetic.interaction.score..ε.) >0.08, ];
+tb.gin.stringent = tb.gin.lenient[ tb.gin.lenient$Genetic.interaction.score..ε.>0.16 | tb.gin.lenient$Genetic.interaction.score..ε.< -0.12, ]
+```
+
+```{r}
+hist(tb.gin.lenient$Genetic.interaction.score..ε., breaks = 100)
+```
+
+
+```{r}
+summary(tb.gin.lenient);
+summary(tb.gin.intermediate);
+summary(tb.gin.stringent)
+```
+
+output
+```{r}
+write.csv(tb.gin.lenient, "../cellmap_data/gin_lenient20171101.csv", row.names = F);
+write.csv(tb.gin.intermediate, "../cellmap_data/gin_intermediate20171101.csv", row.names = F);
+write.csv(tb.gin.stringent, "../cellmap_data/gin_stringent20171101.csv", row.names = F);
+```
+
+
+
+Generate "lenient" unique GINx using average values
+```{r lenient GIN}
+#Generate unique GINs using match(). This does not average the genetic interaction score
+tb.gin.lenient.uniqueByMatch = tb.gin.lenient[match(unique_pairs, tb.gin.lenient$ordered_pairs),  ]
+tb.gin.lenient.uniqueByMatch = tb.gin.lenient.uniqueByMatch[ !is.na(tb.gin.lenient.uniqueByMatch$ordered_pairs), ]
+tb.gin.lenient.uniqueByMatch = tb.gin.lenient.uniqueByMatch[ !is.na(tb.gin.lenient.uniqueByMatch$Query.Strain.ID), ]
+tb.gin.lenient.uniqueByAverage = tb.gin.lenient.uniqueByMatch; 
+tb.gin.lenient.uniqueByAverage$buffer = "NA"
+total = length(tb.gin.lenient.uniqueByAverage[,1]); #error 20171113
+for (i in 1:300) {
+ if( (round(i/100)*100 - i)==0 ) { print(paste(i, ":leniet:", total - i) ); }  
+ tmp = tb.gin.lenient[ tb.gin.lenient$ordered_pairs == unique_pairs[i],  ]
+ if( length(tmp[,1]) > 1) {#more than 1 records, take average
+   tb.gin.lenient.uniqueByAverage$buffer[i]  = paste( tmp$Query.Strain.ID, tmp$Array.Strain.ID, sep=" ", collapse="::");
+   tb.gin.lenient.uniqueByAverage$Genetic.interaction.score..ε.[i] = mean(tmp$Genetic.interaction.score..ε.)
+   tb.gin.lenient.uniqueByAverage$P.value[i] = mean(tmp$P.value)
+ }  
+ #else do nothing
+}
+```
+
+Generate "intermediate" unique GINx using average values
+```{r intermediate GIN}
+tb.gin.intermediate.uniqueByMatch = tb.gin.intermediate[match(unique_pairs, tb.gin.intermediate$ordered_pairs),  ]
+tb.gin.intermediate.uniqueByMatch = tb.gin.intermediate.uniqueByMatch[ !is.na(tb.gin.intermediate.uniqueByMatch$ordered_pairs), ]
+tb.gin.intermediate.uniqueByMatch = tb.gin.intermediate.uniqueByMatch[ !is.na(tb.gin.intermediate.uniqueByMatch$Query.Strain.ID), ]
+tb.gin.intermediate.uniqueByAverage = tb.gin.intermediate.uniqueByMatch; 
+tb.gin.intermediate.uniqueByAverage$buffer = "NA"
+totalIntermediate = length(tb.gin.intermediate.uniqueByMatch[,1]); #20171113 correction
+for (i in 1:500) {
+ if( (round(i/100)*100 - i)==0 ) { print(paste(i, ":intermediate:", totalIntermediate - i) ); }  
+ tmp = tb.gin.intermediate[ tb.gin.intermediate$ordered_pairs == unique_pairs[i],  ]
+ if( length(tmp[,1]) > 1) {#more than 1 records, take average
+   tb.gin.intermediate.uniqueByAverage$buffer[i]  = paste( tmp$Query.Strain.ID, tmp$Array.Strain.ID, sep=" ", collapse="::");
+   tb.gin.intermediate.uniqueByAverage$Genetic.interaction.score..ε.[i] = mean(tmp$Genetic.interaction.score..ε.)
+   tb.gin.intermediate.uniqueByAverage$P.value[i] = mean(tmp$P.value)
+ }  
+ #else do nothing
+}
+```
+
+
+Generate "stringent" unique GINx using average values
+```{r stringent GIN}
+tb.gin.stringent.uniqueByMatch = tb.gin.stringent[match(unique_pairs, tb.gin.stringent$ordered_pairs),  ]
+tb.gin.stringent.uniqueByMatch = tb.gin.stringent.uniqueByMatch[ !is.na(tb.gin.stringent.uniqueByMatch$ordered_pairs), ]
+tb.gin.stringent.uniqueByMatch = tb.gin.stringent.uniqueByMatch[ !is.na(tb.gin.stringent.uniqueByMatch$Query.Strain.ID), ]
+
+tb.gin.stringent.uniqueByAverage = tb.gin.stringent.uniqueByMatch; 
+tb.gin.stringent.uniqueByAverage$buffer = "NA"
+totalstringent = length(tb.gin.stringent.uniqueByMatch[,1]);
+for (i in 1:400) {
+ if( (round(i/100)*100 - i)==0 ) { print(paste(i, ":stringent:", totalstringent - i) ); }  
+ tmp = tb.gin.stringent[ tb.gin.stringent$ordered_pairs == unique_pairs[i],  ]
+ tmp = tmp[ !is.na(tmp$Query.Strain.ID), ]
+ if( length(tmp[,1]) > 1) {#more than 1 records, take average
+   tb.gin.stringent.uniqueByAverage$buffer[i]  = paste( tmp$Query.Strain.ID, tmp$Array.Strain.ID, sep=" ", collapse="::");
+   tb.gin.stringent.uniqueByAverage$Genetic.interaction.score..ε.[i] = mean(tmp$Genetic.interaction.score..ε.)
+   tb.gin.stringent.uniqueByAverage$P.value[i] = mean(tmp$P.value)
+ }  
+ #else do nothing
+}
+```
+
+
+
+output
+```{r output}
+write.csv(tb.gin.lenient.uniqueByAverage, "../cellmap_data/gin_lenient_uniquePairs20171113.csv", row.names = F); 
+write.csv(tb.gin.intermediate.uniqueByAverage, "../cellmap_data/gin_intermediate_uniquePairs20171113.csv", row.names = F); 
+write.csv(tb.gin.stringent.uniqueByAverage, "../cellmap_data/gin_stringent_uniquePairs20171113.csv", row.names = F); 
+```
+
