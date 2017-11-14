@@ -13,41 +13,41 @@ The mapping of strain_id and ORF is in "strain_ids_and_single_mutant_fitness.csv
 ```{r}
 rm(list=ls());
 set.seed(2017);
-datapath = "~/github/cellmap_parent/CellMap/20170626/S1.pairwise/"; #ridgeside
-#datapath = "~/data/Sce/CellMap/20170626/S1.pairwise/"; #applejack
+#datapath = "~/github/cellmap_parent/CellMap/20170626/S1.pairwise/"; #ridgeside
+datapath = "~/data/Sce/CellMap/20170626/S1.pairwise/"; #applejack
 debug = 0;
 list.files(path=datapath);
 
 library(foreach)
 library(doMC)
-registerDoMC(4)
+
 ```
 
 Load naming lookup tables
-```{r}
+```{r dic}
 dic = read.csv(paste(datapath, "strain_ids_and_single_mutant_fitness.csv", sep=''))
 ```
 
 Load essential and non-essential infor that H. Qin generated. 
-```{r}
+```{r fit}
 list.files(path="data");
 fit = read.csv("data/SummaryRegressionHetHomFactorized2015Oct13.csv")
 ```
 
 Load pairwise interaction data
-```{r}
+```{r EE}
 #Essential X Essential 
 tb.ee = read.table(paste(datapath,"SGA_ExE.txt", sep=''), header=T, sep="\t");
 summary(tb.ee);
 ```
 
-```{r}
+```{r EXN NXE}
 #EXN and NXE
 tb.en = read.table(paste(datapath,"SGA_ExN_NxE.txt", sep=''), header=T, sep="\t");
 summary(tb.en);
 ```
 
-```{r}
+```{r NXN}
 #NXN I do not need consider NxN for my aging modeling project
 tb.nn = read.table(paste(datapath,"SGA_NxN.txt", sep=''), header=T, sep="\t");
 summary(tb.nn);
@@ -101,22 +101,30 @@ I will store the unique key_pairs first.
 
 
 ```{r}
-# i=199990
-#i=5347
-#i=5348
+registerDoMC(4)
+tb.gin.lenient$ordered_pairs =NA
+#x = foreach( i = 1:total) %dopar% {
 
-#for (i in 5347:6999) {
-total = length(tb.gin.lenient[,1]);
-for (i in 1:total) {
- if( (round(i/1000)*1000 - i)==0 ) { print(paste(i, "::", total - i) ); }  
- pairs = tb.gin.lenient[i , c("ORF1", "ORF2")];
- if ( ! is.na(pairs[1]) ) {
-  ordered_pairs = sort(pairs)
-  tb.gin.lenient$ordered_pairs[i] =  paste( ordered_pairs[1], ordered_pairs[2], sep="_");
+private_order_ORF = function ( myI) {
+ pairs = tb.gin.lenient[myI , c("ORF1", "ORF2")];
+ pairs; 
+ if ( is.na(pairs[1]) | is.na(pairs[2])) {
+  #tb.gin.lenient$ordered_pairs[myI] = "NA_found"; 
+  return("NA_found");
  } else {
-  tb.gin.lenient$ordered_pairs[i] = "NA_found"; 
+  ordered_pairs = sort(pairs);
+  tb.gin.lenient$ordered_pairs[myI] =  paste( ordered_pairs[1], ordered_pairs[2], sep="_");
+  return(paste( ordered_pairs[1], ordered_pairs[2], sep="_"));
  }
 }
+
+total = length(tb.gin.lenient[,1]);
+x = foreach( i = 1:total) %dopar% {
+  # if( (round(i/1000)*1000 - i)==0 ) { print(paste(i, "::", total - i) ); }  
+   #i^2;
+   private_order_ORF(i);
+}
+tb.gin.lenient$ordered_pairs = unlist(x)
 ```
 
 How many unique interactions (gene pairs) ? 
