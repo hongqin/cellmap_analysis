@@ -1,5 +1,5 @@
 ---
-title: "Genetic interactions CellMap exploration"
+title: "Export unique genetic interactions from CellMap.org "
 author: "H Qin"
 date: "11/1 - 11/9 /2017 "
 output: html_document
@@ -171,9 +171,10 @@ tb.gin.lenient.uniqueByMatch = tb.gin.lenient.uniqueByMatch[ !is.na(tb.gin.lenie
 tb.gin.lenient.uniqueByAverage = tb.gin.lenient.uniqueByMatch; 
 tb.gin.lenient.uniqueByAverage$buffer = "NA"
 total = length(tb.gin.lenient.uniqueByAverage[,1]); #error 20171113
-for (i in 1:300) {
+for (i in 1:total ) {
  if( (round(i/100)*100 - i)==0 ) { print(paste(i, ":leniet:", total - i) ); }  
  tmp = tb.gin.lenient[ tb.gin.lenient$ordered_pairs == unique_pairs[i],  ]
+ tmp = tmp[ !is.na(tmp$Query.Strain.ID), ]
  if( length(tmp[,1]) > 1) {#more than 1 records, take average
    tb.gin.lenient.uniqueByAverage$buffer[i]  = paste( tmp$Query.Strain.ID, tmp$Array.Strain.ID, sep=" ", collapse="::");
    tb.gin.lenient.uniqueByAverage$Genetic.interaction.score..ε.[i] = mean(tmp$Genetic.interaction.score..ε.)
@@ -191,9 +192,10 @@ tb.gin.intermediate.uniqueByMatch = tb.gin.intermediate.uniqueByMatch[ !is.na(tb
 tb.gin.intermediate.uniqueByAverage = tb.gin.intermediate.uniqueByMatch; 
 tb.gin.intermediate.uniqueByAverage$buffer = "NA"
 totalIntermediate = length(tb.gin.intermediate.uniqueByMatch[,1]); #20171113 correction
-for (i in 1:500) {
+for (i in 1:totalIntermediate ) {
  if( (round(i/100)*100 - i)==0 ) { print(paste(i, ":intermediate:", totalIntermediate - i) ); }  
  tmp = tb.gin.intermediate[ tb.gin.intermediate$ordered_pairs == unique_pairs[i],  ]
+ tmp = tmp[ !is.na(tmp$Query.Strain.ID), ]
  if( length(tmp[,1]) > 1) {#more than 1 records, take average
    tb.gin.intermediate.uniqueByAverage$buffer[i]  = paste( tmp$Query.Strain.ID, tmp$Array.Strain.ID, sep=" ", collapse="::");
    tb.gin.intermediate.uniqueByAverage$Genetic.interaction.score..ε.[i] = mean(tmp$Genetic.interaction.score..ε.)
@@ -213,7 +215,7 @@ tb.gin.stringent.uniqueByMatch = tb.gin.stringent.uniqueByMatch[ !is.na(tb.gin.s
 tb.gin.stringent.uniqueByAverage = tb.gin.stringent.uniqueByMatch; 
 tb.gin.stringent.uniqueByAverage$buffer = "NA"
 totalstringent = length(tb.gin.stringent.uniqueByMatch[,1]);
-for (i in 1:400) {
+for (i in 1:totalstringent) {
  if( (round(i/100)*100 - i)==0 ) { print(paste(i, ":stringent:", totalstringent - i) ); }  
  tmp = tb.gin.stringent[ tb.gin.stringent$ordered_pairs == unique_pairs[i],  ]
  tmp = tmp[ !is.na(tmp$Query.Strain.ID), ]
@@ -230,8 +232,8 @@ for (i in 1:400) {
 
 output
 ```{r output}
-write.csv(tb.gin.lenient.uniqueByAverage, "../cellmap_data/gin_lenient_uniquePairs20171113.csv", row.names = F); 
-write.csv(tb.gin.intermediate.uniqueByAverage, "../cellmap_data/gin_intermediate_uniquePairs20171113.csv", row.names = F); 
-write.csv(tb.gin.stringent.uniqueByAverage, "../cellmap_data/gin_stringent_uniquePairs20171113.csv", row.names = F); 
+write.csv(tb.gin.lenient.uniqueByAverage, "../cellmap_data/gin_lenient_uniquePairs20171115.csv", row.names = F); 
+write.csv(tb.gin.intermediate.uniqueByAverage, "../cellmap_data/gin_intermediate_uniquePairs20171115.csv", row.names = F); 
+write.csv(tb.gin.stringent.uniqueByAverage, "../cellmap_data/gin_stringent_uniquePairs20171115.csv", row.names = F); 
 ```
 
